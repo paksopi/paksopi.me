@@ -118,28 +118,17 @@ function loadScript(src) {
   });
 }
 
-// Loaded as a runtime <script type="module"> (string, not a literal import())
-// so webpack never sees it and can't try to bundle/resolve it at build time —
-// this ESM bundle is a large vendored asset meant to stay outside the app bundle.
-function loadMediapipeVision() {
-  return new Promise((resolve, reject) => {
-    if (window.__mediapipeVision) {
-      resolve(window.__mediapipeVision);
-      return;
-    }
-    const el = document.createElement('script');
-    el.type = 'module';
-    el.textContent = `
-      import { FaceDetector, FilesetResolver } from '/emotion/mediapipe/vision_bundle.mjs';
-      window.__mediapipeVision = { FaceDetector, FilesetResolver };
-      window.dispatchEvent(new Event('mediapipe-vision-ready'));
-    `;
-    window.addEventListener('mediapipe-vision-ready', () => resolve(window.__mediapipeVision), {
-      once: true,
-    });
-    document.head.appendChild(el);
-    setTimeout(() => reject(new Error('mediapipe module load timed out')), 45000);
-  });
+// Native dynamic import() of the vendored MediaPipe ESM bundle. We build the
+// import via `new Function` so webpack (Gatsby's bundler) can't statically see
+// the specifier and try to resolve/bundle it at build time — it stays a plain
+// runtime fetch of a large vendored asset. Unlike the previous inline-<script>
+// approach, this returns a real awaitable promise with real errors (a failed
+// import rejects here instead of silently hanging until a timeout).
+const dynamicImport = new Function('u', 'return import(u)');
+
+async function loadMediapipeVision() {
+  const mod = await dynamicImport('/emotion/vision/vision_bundle.mjs');
+  return { FaceDetector: mod.FaceDetector, FilesetResolver: mod.FilesetResolver };
 }
 
 const StyledWidget = styled.div`
@@ -272,11 +261,11 @@ const EmotionDetector = () => {
     const { FaceDetector, FilesetResolver } = mediapipeVision;
     const [session, fileset] = await Promise.all([
       loadEmotionSession(),
-      FilesetResolver.forVisionTasks('/emotion/mediapipe'),
+      FilesetResolver.forVisionTasks('/emotion/vision'),
     ]);
     sessionRef.current = session;
     detectorRef.current = await FaceDetector.createFromOptions(fileset, {
-      baseOptions: { modelAssetPath: '/emotion/mediapipe/blaze_face_short_range.tflite' },
+      baseOptions: { modelAssetPath: '/emotion/vision/blaze_face_short_range.tflite' },
       runningMode: 'IMAGE',
       minDetectionConfidence: 0.5,
     });
