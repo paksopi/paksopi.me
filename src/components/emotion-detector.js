@@ -57,7 +57,9 @@ function cv2LinearResize(srcRGBA, srcW, srcH, dst) {
 }
 
 function preprocessCanvas(srcCanvas) {
-  const ctx = srcCanvas.getContext('2d');
+  // willReadFrequently hints the browser to keep this canvas on the CPU, since
+  // we call getImageData every frame (readback from GPU each time is slow).
+  const ctx = srcCanvas.getContext('2d', { willReadFrequently: true });
   const src = ctx.getImageData(0, 0, srcCanvas.width, srcCanvas.height).data;
   const resized = cv2LinearResize(src, srcCanvas.width, srcCanvas.height, PP_SIZE);
   const out = new Float32Array(3 * PP_SIZE * PP_SIZE);
@@ -213,30 +215,19 @@ const EmotionDetector = () => {
     [],
   );
 
-  // Prefer the 4MB int8-quantized model; if onnxruntime-web's wasm backend can't
-  // load or run one of its quantized ops (ConvInteger support is version-dependent),
-  // transparently fall back to the 16MB fp32 model. The warmup inference is the
-  // real validation — a model that creates fine can still throw on first run — so
-  // both create AND warmup happen here, and any failure triggers the fallback.
+  // Load the fp32 model directly. (An int8-quantized 4MB variant was tried, but
+  // onnxruntime-web's wasm backend can't run its quantized ops — ConvInteger is
+  // unsupported there — so it always fell back to fp32 anyway, wasting a 4MB
+  // download first. The 16MB fp32 model is edge-cached, so it's a one-time cost
+  // per browser.) A warmup inference primes the graph so the first real frame
+  // isn't a cold-start spike.
   const loadEmotionSession = async () => {
-    const warm = () => {
-      const buf = new Float32Array(3 * 224 * 224);
-      return new ort.Tensor('float32', buf, [1, 3, 224, 224]);
-    };
-    try {
-      const s = await ort.InferenceSession.create('/emotion/enet_b0_8_va_mtl.int8.onnx', {
-        executionProviders: ['wasm'],
-      });
-      await s.run({ input: warm() });
-      return s;
-    } catch (e) {
-      setStatus('int8 model unsupported here — loading full model…');
-      const s = await ort.InferenceSession.create('/emotion/enet_b0_8_va_mtl.onnx', {
-        executionProviders: ['wasm'],
-      });
-      await s.run({ input: warm() });
-      return s;
-    }
+    const s = await ort.InferenceSession.create('/emotion/enet_b0_8_va_mtl.onnx', {
+      executionProviders: ['wasm'],
+    });
+    const buf = new Float32Array(3 * 224 * 224);
+    await s.run({ input: new ort.Tensor('float32', buf, [1, 3, 224, 224]) });
+    return s;
   };
 
   // Does NOT touch `phase` itself — the caller (start()) owns phase transitions
@@ -253,11 +244,9 @@ const EmotionDetector = () => {
     ort.env.wasm.numThreads = 1;
     ort.env.wasm.proxy = false;
 
-    setStatus('loading emotion model (~4MB) + face detector (~10MB)…');
+    setStatus('loading model + face detector (one-time, then cached)…');
     // The model and the detector are two independent downloads with no dependency
-    // on each other — run them concurrently. The face detector fileset loads in
-    // parallel; the emotion model is created via loadEmotionSession() which prefers
-    // the small int8 model and falls back to fp32 (see below).
+    // on each other — run them concurrently.
     const { FaceDetector, FilesetResolver } = mediapipeVision;
     const [session, fileset] = await Promise.all([
       loadEmotionSession(),
@@ -305,7 +294,18 @@ const EmotionDetector = () => {
     const cc = cropRef.current;
     cc.width = w;
     cc.height = h;
-    cc.getContext('2d').drawImage(frameCanvas, x, y, w, h, 0, 0, w, h);
+    // Same willReadFrequently hint: preprocessCanvas reads this crop back every frame.
+    cc.getContext('2d', { willReadFrequently: true }).drawImage(
+      frameCanvas,
+      x,
+      y,
+      w,
+      h,
+      0,
+      0,
+      w,
+      h,
+    );
     return cc;
   };
 
