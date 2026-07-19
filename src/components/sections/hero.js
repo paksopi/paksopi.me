@@ -6,26 +6,30 @@ import { usePrefersReducedMotion } from '@hooks';
 import EmotionDetector from '@components/emotion-detector';
 
 const StyledHeroSection = styled.section`
-  ${({ theme }) => theme.mixins.flexCenter};
+  display: flex;
   flex-direction: column;
   align-items: flex-start;
+  justify-content: center;
   min-height: 100vh;
-  height: 100vh;
-  padding: 0;
+  /* No fixed height: the emotion widget can make the hero taller than the
+     viewport, and a rigid 100vh + vertical centering clips the name off the
+     top. min-height lets the section grow; the top padding keeps content clear
+     of the fixed nav when it does. */
+  padding: 150px 0 80px;
 
-  @media (max-height: 700px) and (min-width: 700px), (max-width: 360px) {
-    height: auto;
-    padding-top: var(--nav-height);
+  @media (max-width: 480px) {
+    padding-top: 120px;
   }
 
   .hero-content {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: 60px;
     flex-wrap: wrap;
 
-    @media (max-width: 768px) {
+    @media (max-width: 900px) {
       flex-direction: column;
+      align-items: flex-start;
     }
   }
 

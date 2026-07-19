@@ -7,6 +7,10 @@ module.exports = {
       url: 'https://github.com/paksopi',
     },
     {
+      name: 'Linkedin',
+      url: 'https://www.linkedin.com/in/asfaid/',
+    },
+    {
       name: 'Instagram',
       url: 'https://www.instagram.com/syaufifd',
     },
