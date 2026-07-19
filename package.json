@@ -23,10 +23,10 @@
     "lint-staged": "lint-staged"
   },
   "lint-staged": {
-    "*.{js,css,json,md}": [
+    "!(static/emotion)/**/*.{js,css,json,md}": [
       "prettier --write"
     ],
-    "*.js": [
+    "!(static/emotion)/**/*.js": [
       "eslint --fix"
     ]
   },

@@ -3,6 +3,7 @@ import { CSSTransition, TransitionGroup } from 'react-transition-group';
 import styled from 'styled-components';
 import { navDelay, loaderDelay } from '@utils';
 import { usePrefersReducedMotion } from '@hooks';
+import EmotionDetector from '@components/emotion-detector';
 
 const StyledHeroSection = styled.section`
   ${({ theme }) => theme.mixins.flexCenter};
@@ -15,6 +16,21 @@ const StyledHeroSection = styled.section`
   @media (max-height: 700px) and (min-width: 700px), (max-width: 360px) {
     height: auto;
     padding-top: var(--nav-height);
+  }
+
+  .hero-content {
+    display: flex;
+    align-items: flex-start;
+    gap: 50px;
+    flex-wrap: wrap;
+
+    @media (max-width: 768px) {
+      flex-direction: column;
+    }
+  }
+
+  .hero-text {
+    max-width: 640px;
   }
 
   h1 {
@@ -66,9 +82,9 @@ const Hero = () => {
     <>
       <p>
         I’m a software engineering student and full-stack/AI automation developer. Currently, I’m
-        focused on building AI agent orchestration workflows and production automation systems at{' '}
-        <a href="https://www.lekirtech.com/" target="_blank" rel="noreferrer">
-          Lekir Tech
+        working as an AI Software Specialist at{' '}
+        <a href="https://www.beed.world/" target="_blank" rel="noreferrer">
+          BEED
         </a>
         .
       </p>
@@ -79,22 +95,28 @@ const Hero = () => {
 
   return (
     <StyledHeroSection>
-      {prefersReducedMotion ? (
-        <>
-          {items.map((item, i) => (
-            <div key={i}>{item}</div>
-          ))}
-        </>
-      ) : (
-        <TransitionGroup component={null}>
-          {isMounted &&
-            items.map((item, i) => (
-              <CSSTransition key={i} classNames="fadeup" timeout={loaderDelay}>
-                <div style={{ transitionDelay: `${i + 1}00ms` }}>{item}</div>
-              </CSSTransition>
-            ))}
-        </TransitionGroup>
-      )}
+      <div className="hero-content">
+        <div className="hero-text">
+          {prefersReducedMotion ? (
+            <>
+              {items.map((item, i) => (
+                <div key={i}>{item}</div>
+              ))}
+            </>
+          ) : (
+            <TransitionGroup component={null}>
+              {isMounted &&
+                items.map((item, i) => (
+                  <CSSTransition key={i} classNames="fadeup" timeout={loaderDelay}>
+                    <div style={{ transitionDelay: `${i + 1}00ms` }}>{item}</div>
+                  </CSSTransition>
+                ))}
+            </TransitionGroup>
+          )}
+        </div>
+
+        {isMounted && <EmotionDetector />}
+      </div>
     </StyledHeroSection>
   );
 };

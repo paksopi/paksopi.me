@@ -73,25 +73,25 @@ const About = () => {
               <a href="https://www.ukm.my/" target="_blank" rel="noreferrer">
                 Universiti Kebangsaan Malaysia
               </a>{' '}
-              (CGPA 3.42, expected Oct 2026), currently working as an AI Automation &amp;
-              Full-Stack Developer Intern at{' '}
-              <a href="https://www.lekirtech.com/" target="_blank" rel="noreferrer">
-                Lekir Tech
+              (CGPA 3.42, expected Oct 2026), currently working as an AI Software Specialist at{' '}
+              <a href="https://www.beed.world/" target="_blank" rel="noreferrer">
+                BEED
               </a>
               .
             </p>
 
             <p>
-              There, I engineer AI agent orchestration workflows using n8n, integrating LLM and LAM
+              Before this, I interned at Lekir Tech as an AI Automation &amp; Full-Stack Developer,
+              where I engineered AI agent orchestration workflows using n8n, integrating LLM and LAM
               models into live production environments — including four specialized automation
               workflows built for Mydin (HR, Marketing, Customer Service, Operations) integrated
               with their Lark ecosystem, and technical requirement gathering for an HR Digital
-              Worker presented to the IJN Board of Directors. I also maintain the LekirCash
+              Worker presented to the IJN Board of Directors. I also maintained the LekirCash
               fintech ecosystem's full-stack updates and transaction flow UX.
             </p>
 
             <p>
-              Before this, I was a Line Cook at Texas Chicken and an Operations Assistant at my
+              Earlier still, I was a Line Cook at Texas Chicken and an Operations Assistant at my
               family's agro-enterprise, where I picked up the same discipline around deadlines and
               quality control that I now bring to engineering work. Two of my earlier projects — a
               Java code-visualization app and a Raspberry Pi–powered smart baby stroller — each won
