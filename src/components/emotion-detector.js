@@ -71,16 +71,36 @@ function preprocessCanvas(srcCanvas) {
   return out;
 }
 
+// A plain quadrant read of Russell's circumplex model — NOT the original
+// project's 5-state "engagement" heuristic (that one fits sigmoid thresholds
+// never validated against real labels; this is just "which quadrant is the
+// point in", no fitted parameters at all).
+function stateFromVA(valence, arousal) {
+  if (valence >= 0 && arousal >= 0) {
+    return 'Excited';
+  }
+  if (valence >= 0 && arousal < 0) {
+    return 'Calm';
+  }
+  if (valence < 0 && arousal >= 0) {
+    return 'Stressed';
+  }
+  return 'Sad';
+}
+
 function decodeOutput(raw) {
   const logits = raw.slice(0, 8);
   const mx = Math.max(...logits);
   const e = logits.map(v => Math.exp(v - mx));
   const s = e.reduce((a, b) => a + b, 0);
   const probs = e.map(v => v / s);
+  const valence = raw[8];
+  const arousal = raw[9];
   return {
     dominant_emotion: EMOTIONS[probs.indexOf(Math.max(...probs))],
-    valence: raw[8],
-    arousal: raw[9],
+    valence,
+    arousal,
+    state: stateFromVA(valence, arousal),
   };
 }
 
@@ -204,39 +224,33 @@ const EmotionDetector = () => {
     [],
   );
 
+  // Does NOT touch `phase` itself — the caller (start()) owns phase transitions
+  // so the button stays disabled continuously from click through to running,
+  // with no gap where a second click could interrupt an in-flight play().
   const init = async () => {
-    setPhase('loading');
-    try {
-      setStatus('loading onnxruntime-web…');
-      await loadScript('/emotion/ort.min.js');
-      ort.env.wasm.wasmPaths = '/emotion/';
-      ort.env.wasm.numThreads = 1;
-      ort.env.wasm.proxy = false;
+    setStatus('loading onnxruntime-web…');
+    await loadScript('/emotion/ort.min.js');
+    ort.env.wasm.wasmPaths = '/emotion/';
+    ort.env.wasm.numThreads = 1;
+    ort.env.wasm.proxy = false;
 
-      setStatus('loading emotion model (~16MB, one-time)…');
-      sessionRef.current = await ort.InferenceSession.create('/emotion/enet_b0_8_va_mtl.onnx', {
-        executionProviders: ['wasm'],
-      });
+    setStatus('loading emotion model (~16MB, one-time)…');
+    sessionRef.current = await ort.InferenceSession.create('/emotion/enet_b0_8_va_mtl.onnx', {
+      executionProviders: ['wasm'],
+    });
 
-      setStatus('loading face detector…');
-      const { FaceDetector, FilesetResolver } = await loadMediapipeVision();
-      const fileset = await FilesetResolver.forVisionTasks('/emotion/mediapipe');
-      detectorRef.current = await FaceDetector.createFromOptions(fileset, {
-        baseOptions: { modelAssetPath: '/emotion/mediapipe/blaze_face_short_range.tflite' },
-        runningMode: 'IMAGE',
-        minDetectionConfidence: 0.5,
-      });
+    setStatus('loading face detector…');
+    const { FaceDetector, FilesetResolver } = await loadMediapipeVision();
+    const fileset = await FilesetResolver.forVisionTasks('/emotion/mediapipe');
+    detectorRef.current = await FaceDetector.createFromOptions(fileset, {
+      baseOptions: { modelAssetPath: '/emotion/mediapipe/blaze_face_short_range.tflite' },
+      runningMode: 'IMAGE',
+      minDetectionConfidence: 0.5,
+    });
 
-      setStatus('warming up…');
-      const warm = new Float32Array(3 * 224 * 224);
-      await sessionRef.current.run({ input: new ort.Tensor('float32', warm, [1, 3, 224, 224]) });
-
-      setPhase('ready');
-      setStatus('ready — click Start to enable your camera');
-    } catch (e) {
-      setPhase('error');
-      setStatus(`failed to load: ${e.message}`);
-    }
+    setStatus('warming up…');
+    const warm = new Float32Array(3 * 224 * 224);
+    await sessionRef.current.run({ input: new ort.Tensor('float32', warm, [1, 3, 224, 224]) });
   };
 
   const frameToCanvas = () => {
@@ -299,29 +313,6 @@ const EmotionDetector = () => {
     setTimeout(tick, 150);
   };
 
-  const start = async () => {
-    if (phase === 'idle') {
-      await init();
-    }
-    try {
-      setStatus('requesting camera access…');
-      streamRef.current = await navigator.mediaDevices.getUserMedia({
-        video: { width: 640, height: 480 },
-      });
-      videoRef.current.srcObject = streamRef.current;
-      await videoRef.current.play();
-      framesRef.current = [];
-      t0Ref.current = performance.now();
-      setSessionResult(null);
-      runningRef.current = true;
-      setPhase('running');
-      tick();
-    } catch (e) {
-      setPhase('error');
-      setStatus(`camera error: ${e.message}`);
-    }
-  };
-
   // Mirrors the original project's client/server contract: the browser computes
   // everything (inference already ran client-side above); on stop, it summarizes
   // the session into a small digest and POSTs that ONLY (no images/frames) to a
@@ -339,6 +330,13 @@ const EmotionDetector = () => {
       counts[f.dominant_emotion] = (counts[f.dominant_emotion] || 0) + 1;
     });
     const dominant_emotion = Object.keys(counts).reduce((a, b) => (counts[a] > counts[b] ? a : b));
+    const stateCounts = {};
+    frames.forEach(f => {
+      stateCounts[f.state] = (stateCounts[f.state] || 0) + 1;
+    });
+    const dominant_state = Object.keys(stateCounts).reduce((a, b) =>
+      stateCounts[a] > stateCounts[b] ? a : b,
+    );
     const summary = {
       duration_sec: +((performance.now() - t0Ref.current) / 1000).toFixed(2),
       n_frames: frames.length,
@@ -346,6 +344,8 @@ const EmotionDetector = () => {
       mean_arousal: +avg(frames.map(f => f.arousal)).toFixed(4),
       emotion_counts: counts,
       dominant_emotion,
+      state_counts: stateCounts,
+      dominant_state,
     };
     setStatus('sending session digest to server…');
     try {
@@ -372,6 +372,42 @@ const EmotionDetector = () => {
     summarizeAndSend();
   };
 
+  // startingRef is a synchronous guard against double-clicks: React state
+  // (`phase`) only updates on re-render, so two clicks in the same tick would
+  // both read the same stale phase and both proceed. A ref updates immediately.
+  const startingRef = useRef(false);
+
+  const start = async () => {
+    if (startingRef.current || phase === 'running') {
+      return;
+    }
+    startingRef.current = true;
+    setPhase('loading');
+    try {
+      if (!sessionRef.current) {
+        await init();
+      }
+      setStatus('requesting camera access…');
+      streamRef.current = await navigator.mediaDevices.getUserMedia({
+        video: { width: 640, height: 480 },
+      });
+      videoRef.current.srcObject = streamRef.current;
+      await videoRef.current.play();
+      framesRef.current = [];
+      t0Ref.current = performance.now();
+      setSessionResult(null);
+      runningRef.current = true;
+      setPhase('running');
+      tick();
+      setTimeout(() => stop(), 10000);
+    } catch (e) {
+      setPhase('error');
+      setStatus(`camera error: ${e.message}`);
+    } finally {
+      startingRef.current = false;
+    }
+  };
+
   return (
     <StyledWidget>
       <div className="label">Live emotion detection (experimental)</div>
@@ -381,7 +417,7 @@ const EmotionDetector = () => {
 
       {phase !== 'running' ? (
         <button onClick={start} disabled={phase === 'loading'}>
-          {phase === 'loading' ? 'Loading…' : 'Start camera'}
+          {phase === 'loading' ? 'Loading…' : 'Start 10s session'}
         </button>
       ) : (
         <button onClick={stop}>Stop</button>
@@ -400,6 +436,10 @@ const EmotionDetector = () => {
           <div className="row">
             <span>arousal</span>
             <span>{emotion.arousal.toFixed(2)}</span>
+          </div>
+          <div className="row">
+            <span>state (V/A quadrant)</span>
+            <span className="emotion">{emotion.state}</span>
           </div>
         </>
       )}

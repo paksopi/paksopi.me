@@ -57,7 +57,9 @@ const About = () => {
     'PHP / MySQL',
     'Full-Stack Web Development',
     'Git / GitHub',
+    'Docker / Docker Compose',
     'Raspberry Pi / IoT',
+    'Self-Hosting / Linux Servers',
   ];
 
   return (
@@ -96,6 +98,14 @@ const About = () => {
               quality control that I now bring to engineering work. Two of my earlier projects — a
               Java code-visualization app and a Raspberry Pi–powered smart baby stroller — each won
               gold medals at JIICaS 2023 and ICCI 2020.
+            </p>
+
+            <p>
+              Outside of work, I run this site — along with an AI agent, a Cloudflare Tunnel with
+              zero inbound ports opened, and this project's own CI/CD pipeline — on a personal
+              homelab: an old laptop repurposed into an always-on server, with every service
+              containerized in its own Docker Compose stack under a tight RAM budget. It's where I
+              actually use the infra skills I talk about, not just read about them.
             </p>
 
             <p>Here are a few things I've been working with recently:</p>
