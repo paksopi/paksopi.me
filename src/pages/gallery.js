@@ -1,10 +1,7 @@
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import PropTypes from 'prop-types';
 import styled from 'styled-components';
-import { srConfig } from '@config';
-import sr from '@utils/sr';
 import { Layout } from '@components';
-import { usePrefersReducedMotion } from '@hooks';
 import galleryData from '../gallery-data.json';
 
 const StyledGalleryPage = styled.main`
@@ -108,20 +105,14 @@ const StyledGalleryPage = styled.main`
   }
 `;
 
-const GalleryPage = ({ location }) => {
-  const revealContainer = useRef(null);
-  const prefersReducedMotion = usePrefersReducedMotion();
-
-  useEffect(() => {
-    if (prefersReducedMotion) {
-      return;
-    }
-    sr.reveal(revealContainer.current, srConfig());
-  }, []);
-
-  return (
+const GalleryPage = ({ location }) => 
+  // No scroll-reveal here: this is a full content page, and wrapping it in a
+  // single reveal left everything at opacity:0 until the tall container crossed
+  // the scroll threshold — on mobile that read as a blank page. Render plainly
+  // so the gallery is always visible immediately.
+  (
     <Layout location={location}>
-      <StyledGalleryPage ref={revealContainer}>
+      <StyledGalleryPage>
         <header>
           <h1 className="big-heading">Gallery</h1>
           <p className="subtitle">Awards, projects, and community work</p>
@@ -164,8 +155,8 @@ const GalleryPage = ({ location }) => {
         )}
       </StyledGalleryPage>
     </Layout>
-  );
-};
+  )
+;
 
 GalleryPage.propTypes = {
   location: PropTypes.object.isRequired,
