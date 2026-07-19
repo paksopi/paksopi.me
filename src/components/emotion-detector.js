@@ -481,7 +481,12 @@ const EmotionDetector = () => {
 
       <div className="privacy">
         Runs entirely in your browser (ONNX Runtime Web + MediaPipe) — no video or image ever leaves
-        this page.
+        this page. When a session ends, only a small anonymous summary (emotion counts, average
+        valence/arousal — no images) is sent to the demo server.{' '}
+        <a href="/emotion/THIRD_PARTY_NOTICES.txt" target="_blank" rel="noreferrer">
+          Licenses &amp; credits
+        </a>
+        .
       </div>
     </StyledWidget>
   );
