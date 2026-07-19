@@ -4,7 +4,7 @@ title: 'AI Automation & Full-Stack Developer Intern'
 company: 'Lekir Tech (M) Sdn Bhd'
 location: 'Cyberjaya, Selangor'
 range: 'Sep 2025 - Feb 2026'
-url: 'https://www.lekirtech.com/'
+url: 'https://lekir.tech'
 ---
 
 - Engineered AI agent orchestration workflows using n8n, integrating LLM and LAM models into live production environments

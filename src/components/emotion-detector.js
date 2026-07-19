@@ -11,16 +11,6 @@ import styled from 'styled-components';
 const PP_MEAN = [0.485, 0.456, 0.406];
 const PP_STD = [0.229, 0.224, 0.225];
 const PP_SIZE = 224;
-const EMOTIONS = [
-  'Anger',
-  'Contempt',
-  'Disgust',
-  'Fear',
-  'Happiness',
-  'Neutral',
-  'Sadness',
-  'Surprise',
-];
 
 function cv2LinearResize(srcRGBA, srcW, srcH, dst) {
   const out = new Uint8ClampedArray(dst * dst * 3);
@@ -73,36 +63,49 @@ function preprocessCanvas(srcCanvas) {
   return out;
 }
 
-// A plain quadrant read of Russell's circumplex model — NOT the original
-// project's 5-state "engagement" heuristic (that one fits sigmoid thresholds
-// never validated against real labels; this is just "which quadrant is the
-// point in", no fitted parameters at all).
-function stateFromVA(valence, arousal) {
-  if (valence >= 0 && arousal >= 0) {
-    return 'Excited';
-  }
-  if (valence >= 0 && arousal < 0) {
-    return 'Calm';
-  }
-  if (valence < 0 && arousal >= 0) {
-    return 'Stressed';
-  }
-  return 'Sad';
+// VA -> engagement state, ported verbatim from the original project's
+// engagement.js (itself a byte-identical port of engagement.py). The sigmoid
+// thresholds are the project's own; per that project's docs they were never
+// fit to labelled data, so this is a heuristic read of valence/arousal, not a
+// model output — shown here as a demo of the same VA->state mapping.
+const STATES = ['engaged', 'frustrated', 'confused', 'bored', 'neutral'];
+const K = 8.0;
+const sigmoid = x => 1.0 / (1.0 + Math.exp(-K * x));
+const band = (x, lo, hi) => sigmoid(x - lo) * sigmoid(hi - x);
+
+function stateScores(valence, arousal) {
+  const engaged = sigmoid(valence - 0.3) * sigmoid(arousal - 0.3);
+  const frustrated = sigmoid(-(valence + 0.2)) * sigmoid(arousal - 0.4);
+  const confused = sigmoid(-(valence + 0.1)) * band(arousal, 0.1, 0.5);
+  const bored = sigmoid(-valence) * sigmoid(-arousal);
+  const intensity = Math.sqrt(valence * valence + arousal * arousal);
+  const neutral = 1.0 - sigmoid(intensity - 0.35);
+  const raw = { engaged, frustrated, confused, bored, neutral };
+  const total = STATES.reduce((a, s) => a + raw[s], 0);
+  const out = {};
+  STATES.forEach(s => {
+    out[s] = +(raw[s] / total).toFixed(4);
+  });
+  return out;
+}
+
+function topState(scores) {
+  let best = STATES[0];
+  STATES.forEach(s => {
+    if (scores[s] > scores[best]) {
+      best = s;
+    }
+  });
+  return best;
 }
 
 function decodeOutput(raw) {
-  const logits = raw.slice(0, 8);
-  const mx = Math.max(...logits);
-  const e = logits.map(v => Math.exp(v - mx));
-  const s = e.reduce((a, b) => a + b, 0);
-  const probs = e.map(v => v / s);
   const valence = raw[8];
   const arousal = raw[9];
   return {
-    dominant_emotion: EMOTIONS[probs.indexOf(Math.max(...probs))],
     valence,
     arousal,
-    state: stateFromVA(valence, arousal),
+    state: topState(stateScores(valence, arousal)),
   };
 }
 
@@ -215,19 +218,27 @@ const EmotionDetector = () => {
     [],
   );
 
-  // Load the fp32 model directly. (An int8-quantized 4MB variant was tried, but
-  // onnxruntime-web's wasm backend can't run its quantized ops — ConvInteger is
-  // unsupported there — so it always fell back to fp32 anyway, wasting a 4MB
-  // download first. The 16MB fp32 model is edge-cached, so it's a one-time cost
-  // per browser.) A warmup inference primes the graph so the first real frame
-  // isn't a cold-start spike.
+  // Prefer the fp16 model: 8MB (half of fp32's 16MB) with essentially identical
+  // output (valence/arousal differ by ~1e-4). Unlike int8 — whose QOperator
+  // ConvInteger ops the ORT Web wasm backend can't run — fp16 loads everywhere
+  // (ORT Web upcasts fp16→fp32 at runtime), so this is a safe 2x download win.
+  // Still guard with an fp32 fallback since we can't unit-test every browser's
+  // wasm build; the warmup inference is the real validation.
   const loadEmotionSession = async () => {
-    const s = await ort.InferenceSession.create('/emotion/enet_b0_8_va_mtl.onnx', {
-      executionProviders: ['wasm'],
-    });
-    const buf = new Float32Array(3 * 224 * 224);
-    await s.run({ input: new ort.Tensor('float32', buf, [1, 3, 224, 224]) });
-    return s;
+    const warm = () => new ort.Tensor('float32', new Float32Array(3 * 224 * 224), [1, 3, 224, 224]);
+    try {
+      const s = await ort.InferenceSession.create('/emotion/enet_b0_8_va_mtl.fp16.onnx', {
+        executionProviders: ['wasm'],
+      });
+      await s.run({ input: warm() });
+      return s;
+    } catch (e) {
+      const s = await ort.InferenceSession.create('/emotion/enet_b0_8_va_mtl.onnx', {
+        executionProviders: ['wasm'],
+      });
+      await s.run({ input: warm() });
+      return s;
+    }
   };
 
   // Does NOT touch `phase` itself — the caller (start()) owns phase transitions
@@ -343,11 +354,6 @@ const EmotionDetector = () => {
       return;
     }
     const avg = arr => arr.reduce((a, b) => a + b, 0) / arr.length;
-    const counts = {};
-    frames.forEach(f => {
-      counts[f.dominant_emotion] = (counts[f.dominant_emotion] || 0) + 1;
-    });
-    const dominant_emotion = Object.keys(counts).reduce((a, b) => (counts[a] > counts[b] ? a : b));
     const stateCounts = {};
     frames.forEach(f => {
       stateCounts[f.state] = (stateCounts[f.state] || 0) + 1;
@@ -360,8 +366,6 @@ const EmotionDetector = () => {
       n_frames: frames.length,
       mean_valence: +avg(frames.map(f => f.valence)).toFixed(4),
       mean_arousal: +avg(frames.map(f => f.arousal)).toFixed(4),
-      emotion_counts: counts,
-      dominant_emotion,
       state_counts: stateCounts,
       dominant_state,
     };
@@ -428,7 +432,7 @@ const EmotionDetector = () => {
 
   return (
     <StyledWidget>
-      <div className="label">Live emotion detection (experimental)</div>
+      <div className="label">Live VA → state detection (experimental)</div>
       <video ref={videoRef} autoPlay playsInline muted />
       <canvas ref={canvasRef} />
       <canvas ref={cropRef} />
@@ -444,8 +448,8 @@ const EmotionDetector = () => {
       {emotion && (
         <>
           <div className="row">
-            <span>emotion</span>
-            <span className="emotion">{emotion.dominant_emotion}</span>
+            <span>state</span>
+            <span className="emotion">{emotion.state}</span>
           </div>
           <div className="row">
             <span>valence</span>
@@ -455,18 +459,14 @@ const EmotionDetector = () => {
             <span>arousal</span>
             <span>{emotion.arousal.toFixed(2)}</span>
           </div>
-          <div className="row">
-            <span>state (V/A quadrant)</span>
-            <span className="emotion">{emotion.state}</span>
-          </div>
         </>
       )}
 
       {sessionResult && (
         <div className="row" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
           <span>
-            session sent — dominant:{' '}
-            <span className="emotion">{sessionResult.summary.dominant_emotion}</span>
+            session sent — dominant state:{' '}
+            <span className="emotion">{sessionResult.summary.dominant_state}</span>
           </span>
           <span>
             see it server-side:{' '}
