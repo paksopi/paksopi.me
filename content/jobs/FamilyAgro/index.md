@@ -1,7 +1,7 @@
 ---
 date: '2016-01-01'
 title: 'Operations Assistant - Production & Supply Chain'
-company: 'Family Agro-Enterprise'
+company: 'Family Agro'
 location: 'Tanjung Karang, Selangor'
 range: '2016 - Present'
 url: ''

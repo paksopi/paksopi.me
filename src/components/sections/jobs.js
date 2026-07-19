@@ -89,7 +89,11 @@ const StyledTabButton = styled.button`
     min-width: 120px;
     padding: 0 15px;
     border-left: 0;
-    border-bottom: 2px solid var(--lightest-navy);
+    /* Active-tab indicator is the button's own bottom border on mobile, so it
+       always matches the (variable-width) tab — unlike the fixed-width sliding
+       highlight, which is hidden on mobile (see StyledHighlight). */
+    border-bottom: 2px solid
+      ${({ isActive }) => (isActive ? 'var(--green)' : 'var(--lightest-navy)')};
     text-align: center;
   }
 
@@ -112,17 +116,10 @@ const StyledHighlight = styled.div`
   transition: transform 0.25s cubic-bezier(0.645, 0.045, 0.355, 1);
   transition-delay: 0.1s;
 
+  /* On mobile the sliding highlight can't track variable-width tabs, so it's
+     hidden and each active tab shows its own green bottom border instead. */
   @media (max-width: 600px) {
-    top: auto;
-    bottom: 0;
-    width: 100%;
-    max-width: var(--tab-width);
-    height: 2px;
-    margin-left: 50px;
-    transform: translateX(calc(${({ activeTabId }) => activeTabId} * var(--tab-width)));
-  }
-  @media (max-width: 480px) {
-    margin-left: 25px;
+    display: none;
   }
 `;
 

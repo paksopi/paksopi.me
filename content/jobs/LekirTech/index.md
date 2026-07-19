@@ -1,7 +1,7 @@
 ---
 date: '2025-09-01'
 title: 'AI Automation & Full-Stack Developer Intern'
-company: 'Lekir Tech (M) Sdn Bhd'
+company: 'Lekir Tech'
 location: 'Cyberjaya, Selangor'
 range: 'Sep 2025 - Feb 2026'
 url: 'https://lekir.tech'
