@@ -224,6 +224,32 @@ const EmotionDetector = () => {
     [],
   );
 
+  // Prefer the 4MB int8-quantized model; if onnxruntime-web's wasm backend can't
+  // load or run one of its quantized ops (ConvInteger support is version-dependent),
+  // transparently fall back to the 16MB fp32 model. The warmup inference is the
+  // real validation — a model that creates fine can still throw on first run — so
+  // both create AND warmup happen here, and any failure triggers the fallback.
+  const loadEmotionSession = async () => {
+    const warm = () => {
+      const buf = new Float32Array(3 * 224 * 224);
+      return new ort.Tensor('float32', buf, [1, 3, 224, 224]);
+    };
+    try {
+      const s = await ort.InferenceSession.create('/emotion/enet_b0_8_va_mtl.int8.onnx', {
+        executionProviders: ['wasm'],
+      });
+      await s.run({ input: warm() });
+      return s;
+    } catch (e) {
+      setStatus('int8 model unsupported here — loading full model…');
+      const s = await ort.InferenceSession.create('/emotion/enet_b0_8_va_mtl.onnx', {
+        executionProviders: ['wasm'],
+      });
+      await s.run({ input: warm() });
+      return s;
+    }
+  };
+
   // Does NOT touch `phase` itself — the caller (start()) owns phase transitions
   // so the button stays disabled continuously from click through to running,
   // with no gap where a second click could interrupt an in-flight play().
@@ -238,15 +264,14 @@ const EmotionDetector = () => {
     ort.env.wasm.numThreads = 1;
     ort.env.wasm.proxy = false;
 
-    setStatus('loading emotion model (~16MB) + face detector (~10MB)…');
-    // The model and the detector are two independent ~10-16MB downloads with no
-    // dependency on each other — running them concurrently roughly halves the
-    // wait versus loading one after the other.
+    setStatus('loading emotion model (~4MB) + face detector (~10MB)…');
+    // The model and the detector are two independent downloads with no dependency
+    // on each other — run them concurrently. The face detector fileset loads in
+    // parallel; the emotion model is created via loadEmotionSession() which prefers
+    // the small int8 model and falls back to fp32 (see below).
     const { FaceDetector, FilesetResolver } = mediapipeVision;
     const [session, fileset] = await Promise.all([
-      ort.InferenceSession.create('/emotion/enet_b0_8_va_mtl.onnx', {
-        executionProviders: ['wasm'],
-      }),
+      loadEmotionSession(),
       FilesetResolver.forVisionTasks('/emotion/mediapipe'),
     ]);
     sessionRef.current = session;
@@ -255,10 +280,6 @@ const EmotionDetector = () => {
       runningMode: 'IMAGE',
       minDetectionConfidence: 0.5,
     });
-
-    setStatus('warming up…');
-    const warm = new Float32Array(3 * 224 * 224);
-    await sessionRef.current.run({ input: new ort.Tensor('float32', warm, [1, 3, 224, 224]) });
   };
 
   const frameToCanvas = () => {
