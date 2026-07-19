@@ -7,6 +7,28 @@
 const path = require('path');
 const _ = require('lodash');
 
+// Explicit schema for every frontmatter field referenced anywhere in src/, so
+// pages/templates don't break when a content collection (e.g. content/posts,
+// content/featured) has no markdown files yet — Gatsby can't infer a field's
+// type from zero data.
+exports.createSchemaCustomization = ({ actions }) => {
+  actions.createTypes(`
+    type MarkdownRemark implements Node {
+      frontmatter: Frontmatter
+    }
+    type Frontmatter {
+      slug: String
+      tags: [String]
+      description: String
+      draft: Boolean
+      ios: String
+      android: String
+      cta: String
+      cover: File @fileByRelativePath
+    }
+  `);
+};
+
 exports.createPages = async ({ actions, graphql, reporter }) => {
   const { createPage } = actions;
   const postTemplate = path.resolve(`src/templates/post.js`);

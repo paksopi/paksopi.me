@@ -6,6 +6,7 @@ module.exports = {
     description:
       'Ahmad Syaufi Faid is a software engineering student and full-stack/AI automation developer building accessible, practical digital products.',
     siteUrl: 'https://paksopi.me', // No trailing slash allowed!
+    image: '',
     twitterUsername: '',
   },
   plugins: [
