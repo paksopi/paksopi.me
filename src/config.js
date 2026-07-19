@@ -6,6 +6,10 @@ module.exports = {
       name: 'GitHub',
       url: 'https://github.com/paksopi',
     },
+    {
+      name: 'Instagram',
+      url: 'https://www.instagram.com/syaufifd',
+    },
   ],
 
   navLinks: [

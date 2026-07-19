@@ -345,8 +345,14 @@ const Featured = () => {
     revealProjects.current.forEach((ref, i) => sr.reveal(ref, srConfig(i * 100)));
   }, []);
 
+  // No featured content yet — render nothing rather than an orphan heading.
+  // The `#projects` nav anchor lives on the Projects grid section instead.
+  if (!featuredProjects.length) {
+    return null;
+  }
+
   return (
-    <section id="projects">
+    <section>
       <h2 className="numbered-heading" ref={revealTitle}>
         Some Things I’ve Built
       </h2>
