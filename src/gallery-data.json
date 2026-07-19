@@ -5,7 +5,7 @@
       "entries": [
         {
           "slug": "icci-2020",
-          "title": "Double Gold Medal — ICCI 2020",
+          "title": "Double Gold Medal — International Conference on Creativity and Innovation (ICCI 2020)",
           "date": "Feb 2020",
           "description": "Recognized for developing the Babyfond Baby Stroller, an innovative and creative invention designed to enhance baby mobility and safety.",
           "images": [
@@ -38,7 +38,7 @@
         },
         {
           "slug": "jiicas-2023",
-          "title": "Gold Medal — JIICaS 2023",
+          "title": "Gold Medal — Johor Innovation Invention Competition and Symposium (JIICaS 2023)",
           "date": "Sep 2023",
           "description": "The project focused on improving students’ understanding and motivation in learning programming using gamified and visual methods.",
           "images": [
@@ -47,11 +47,15 @@
               "title": "Gold Medal certificate",
               "caption": "Gold Medal certificate — JIICaS 2023, for the Java learning application."
             }
-          ]
+          ],
+          "link": {
+            "url": "https://www.youtube.com/watch?v=Fio_LM65c0Q",
+            "label": "Watch our competition video →"
+          }
         },
         {
           "slug": "aogc-2019",
-          "title": "Certificate of Appreciation — AOGC 2019 (PETRONAS)",
+          "title": "Certificate of Appreciation — Asia Oil & Gas Conference (AOGC 2019), PETRONAS",
           "date": "Jun 2019",
           "description": "The event, hosted by PETRONAS and sponsored by ExxonMobil, Repsol, and Petrosains, provided insights into the global energy industry, sustainability trends, and innovation opportunities for future engineers and technologists.",
           "images": [

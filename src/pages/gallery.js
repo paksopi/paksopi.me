@@ -61,7 +61,15 @@ const StyledGalleryPage = styled.main`
     color: var(--slate);
     font-size: var(--fz-md);
     max-width: 800px;
-    margin: 10px 0 20px;
+    margin: 10px 0 12px;
+  }
+  .entry-link {
+    margin: 0 0 20px;
+    a {
+      color: var(--green);
+      font-family: var(--font-mono);
+      font-size: var(--fz-sm);
+    }
   }
 
   .grid {
@@ -105,59 +113,63 @@ const StyledGalleryPage = styled.main`
   }
 `;
 
-const GalleryPage = ({ location }) => 
+const GalleryPage = ({ location }) => (
   // No scroll-reveal here: this is a full content page, and wrapping it in a
   // single reveal left everything at opacity:0 until the tall container crossed
   // the scroll threshold — on mobile that read as a blank page. Render plainly
   // so the gallery is always visible immediately.
-  (
-    <Layout location={location}>
-      <StyledGalleryPage>
-        <header>
-          <h1 className="big-heading">Gallery</h1>
-          <p className="subtitle">Awards, projects, and community work</p>
-        </header>
+  <Layout location={location}>
+    <StyledGalleryPage>
+      <header>
+        <h1 className="big-heading">Gallery</h1>
+        <p className="subtitle">Awards, projects, and community work</p>
+      </header>
 
-        {galleryData.categories.map(category =>
-          category.entries.length ? (
-            <section className="category" key={category.name}>
-              <h2 className="category-name">{category.name}</h2>
+      {galleryData.categories.map(category =>
+        category.entries.length ? (
+          <section className="category" key={category.name}>
+            <h2 className="category-name">{category.name}</h2>
 
-              {category.entries.map(entry => (
-                <div className="entry" key={entry.slug}>
-                  <div className="entry-head">
-                    <h3 className="entry-title">{entry.title}</h3>
-                    {entry.date && <span className="entry-date">{entry.date}</span>}
-                  </div>
-                  {entry.description && <p className="entry-desc">{entry.description}</p>}
-
-                  {entry.images.length > 0 && (
-                    <div className="grid">
-                      {entry.images.map(img => (
-                        <div className="card" key={img.src}>
-                          <a href={img.src} target="_blank" rel="noreferrer">
-                            <img src={img.src} alt={img.title || entry.title} loading="lazy" />
-                          </a>
-                          {(img.title || img.caption) && (
-                            <div className="cap">
-                              {img.title && <div className="cap-title">{img.title}</div>}
-                              {img.caption && <div className="cap-text">{img.caption}</div>}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
+            {category.entries.map(entry => (
+              <div className="entry" key={entry.slug}>
+                <div className="entry-head">
+                  <h3 className="entry-title">{entry.title}</h3>
+                  {entry.date && <span className="entry-date">{entry.date}</span>}
                 </div>
-              ))}
-            </section>
-          ) : null,
-        )}
-      </StyledGalleryPage>
-    </Layout>
-  )
-;
+                {entry.description && <p className="entry-desc">{entry.description}</p>}
+                {entry.link && (
+                  <p className="entry-link">
+                    <a href={entry.link.url} target="_blank" rel="noreferrer">
+                      {entry.link.label}
+                    </a>
+                  </p>
+                )}
 
+                {entry.images.length > 0 && (
+                  <div className="grid">
+                    {entry.images.map(img => (
+                      <div className="card" key={img.src}>
+                        <a href={img.src} target="_blank" rel="noreferrer">
+                          <img src={img.src} alt={img.title || entry.title} loading="lazy" />
+                        </a>
+                        {(img.title || img.caption) && (
+                          <div className="cap">
+                            {img.title && <div className="cap-title">{img.title}</div>}
+                            {img.caption && <div className="cap-text">{img.caption}</div>}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </section>
+        ) : null,
+      )}
+    </StyledGalleryPage>
+  </Layout>
+);
 GalleryPage.propTypes = {
   location: PropTypes.object.isRequired,
 };
