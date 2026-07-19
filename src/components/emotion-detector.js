@@ -138,7 +138,7 @@ function loadMediapipeVision() {
       once: true,
     });
     document.head.appendChild(el);
-    setTimeout(() => reject(new Error('mediapipe module load timed out')), 15000);
+    setTimeout(() => reject(new Error('mediapipe module load timed out')), 45000);
   });
 }
 
@@ -228,20 +228,28 @@ const EmotionDetector = () => {
   // so the button stays disabled continuously from click through to running,
   // with no gap where a second click could interrupt an in-flight play().
   const init = async () => {
-    setStatus('loading onnxruntime-web…');
-    await loadScript('/emotion/ort.min.js');
+    setStatus('loading onnxruntime-web + face detector scripts…');
+    // These two script loads are independent of each other — fetch in parallel.
+    const [, mediapipeVision] = await Promise.all([
+      loadScript('/emotion/ort.min.js'),
+      loadMediapipeVision(),
+    ]);
     ort.env.wasm.wasmPaths = '/emotion/';
     ort.env.wasm.numThreads = 1;
     ort.env.wasm.proxy = false;
 
-    setStatus('loading emotion model (~16MB, one-time)…');
-    sessionRef.current = await ort.InferenceSession.create('/emotion/enet_b0_8_va_mtl.onnx', {
-      executionProviders: ['wasm'],
-    });
-
-    setStatus('loading face detector…');
-    const { FaceDetector, FilesetResolver } = await loadMediapipeVision();
-    const fileset = await FilesetResolver.forVisionTasks('/emotion/mediapipe');
+    setStatus('loading emotion model (~16MB) + face detector (~10MB)…');
+    // The model and the detector are two independent ~10-16MB downloads with no
+    // dependency on each other — running them concurrently roughly halves the
+    // wait versus loading one after the other.
+    const { FaceDetector, FilesetResolver } = mediapipeVision;
+    const [session, fileset] = await Promise.all([
+      ort.InferenceSession.create('/emotion/enet_b0_8_va_mtl.onnx', {
+        executionProviders: ['wasm'],
+      }),
+      FilesetResolver.forVisionTasks('/emotion/mediapipe'),
+    ]);
+    sessionRef.current = session;
     detectorRef.current = await FaceDetector.createFromOptions(fileset, {
       baseOptions: { modelAssetPath: '/emotion/mediapipe/blaze_face_short_range.tflite' },
       runningMode: 'IMAGE',
