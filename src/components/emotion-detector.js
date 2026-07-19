@@ -28,13 +28,17 @@ function cv2LinearResize(srcRGBA, srcW, srcH, dst) {
   const syRatio = srcH / dst;
   for (let dy = 0; dy < dst; dy++) {
     let sy = (dy + 0.5) * syRatio - 0.5;
-    if (sy < 0) {sy = 0;}
+    if (sy < 0) {
+      sy = 0;
+    }
     const y0 = Math.min(srcH - 1, Math.floor(sy));
     const y1 = Math.min(srcH - 1, y0 + 1);
     const fy = sy - Math.floor(sy);
     for (let dx = 0; dx < dst; dx++) {
       let sx = (dx + 0.5) * sxRatio - 0.5;
-      if (sx < 0) {sx = 0;}
+      if (sx < 0) {
+        sx = 0;
+      }
       const x0 = Math.min(srcW - 1, Math.floor(sx));
       const x1 = Math.min(srcW - 1, x0 + 1);
       const fx = sx - Math.floor(sx);
@@ -186,11 +190,19 @@ const EmotionDetector = () => {
   const detectorRef = useRef(null);
   const streamRef = useRef(null);
   const runningRef = useRef(false);
+  const framesRef = useRef([]);
+  const t0Ref = useRef(0);
+  const [sessionResult, setSessionResult] = useState(null);
 
-  useEffect(() => () => {
-    runningRef.current = false;
-    if (streamRef.current) {streamRef.current.getTracks().forEach(t => t.stop());}
-  }, []);
+  useEffect(
+    () => () => {
+      runningRef.current = false;
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(t => t.stop());
+      }
+    },
+    [],
+  );
 
   const init = async () => {
     setPhase('loading');
@@ -238,7 +250,9 @@ const EmotionDetector = () => {
 
   const detectCrop = frameCanvas => {
     const res = detectorRef.current.detect(frameCanvas);
-    if (!res.detections || !res.detections.length) {return null;}
+    if (!res.detections || !res.detections.length) {
+      return null;
+    }
     let best = res.detections[0];
     for (const d of res.detections) {
       if (
@@ -253,7 +267,9 @@ const EmotionDetector = () => {
     const y = Math.max(0, b.originY);
     const w = Math.min(frameCanvas.width - x, b.width);
     const h = Math.min(frameCanvas.height - y, b.height);
-    if (w <= 0 || h <= 0) {return null;}
+    if (w <= 0 || h <= 0) {
+      return null;
+    }
     const cc = cropRef.current;
     cc.width = w;
     cc.height = h;
@@ -262,7 +278,9 @@ const EmotionDetector = () => {
   };
 
   const tick = async () => {
-    if (!runningRef.current) {return;}
+    if (!runningRef.current) {
+      return;
+    }
     const frame = frameToCanvas();
     const crop = detectCrop(frame);
     if (!crop) {
@@ -276,6 +294,7 @@ const EmotionDetector = () => {
       const dec = decodeOutput(raw);
       setEmotion(dec);
       setStatus('running…');
+      framesRef.current.push(dec);
     }
     setTimeout(tick, 150);
   };
@@ -291,6 +310,9 @@ const EmotionDetector = () => {
       });
       videoRef.current.srcObject = streamRef.current;
       await videoRef.current.play();
+      framesRef.current = [];
+      t0Ref.current = performance.now();
+      setSessionResult(null);
       runningRef.current = true;
       setPhase('running');
       tick();
@@ -300,12 +322,54 @@ const EmotionDetector = () => {
     }
   };
 
+  // Mirrors the original project's client/server contract: the browser computes
+  // everything (inference already ran client-side above); on stop, it summarizes
+  // the session into a small digest and POSTs that ONLY (no images/frames) to a
+  // separate "server side" that does no inference of its own — just receives and
+  // displays it. See https://emotion-api.paksopi.me
+  const summarizeAndSend = async () => {
+    const frames = framesRef.current;
+    if (!frames.length) {
+      setStatus('stopped — no frames captured');
+      return;
+    }
+    const avg = arr => arr.reduce((a, b) => a + b, 0) / arr.length;
+    const counts = {};
+    frames.forEach(f => {
+      counts[f.dominant_emotion] = (counts[f.dominant_emotion] || 0) + 1;
+    });
+    const dominant_emotion = Object.keys(counts).reduce((a, b) => (counts[a] > counts[b] ? a : b));
+    const summary = {
+      duration_sec: +((performance.now() - t0Ref.current) / 1000).toFixed(2),
+      n_frames: frames.length,
+      mean_valence: +avg(frames.map(f => f.valence)).toFixed(4),
+      mean_arousal: +avg(frames.map(f => f.arousal)).toFixed(4),
+      emotion_counts: counts,
+      dominant_emotion,
+    };
+    setStatus('sending session digest to server…');
+    try {
+      const r = await fetch('https://emotion-api.paksopi.me/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(summary),
+      });
+      const res = await r.json();
+      setSessionResult({ summary, res });
+      setStatus(`stored on server — session #${res.total_sessions}`);
+    } catch (e) {
+      setStatus(`stopped — couldn't reach server: ${e.message}`);
+    }
+  };
+
   const stop = () => {
     runningRef.current = false;
-    if (streamRef.current) {streamRef.current.getTracks().forEach(t => t.stop());}
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+    }
     setPhase('ready');
     setEmotion(null);
-    setStatus('stopped');
+    summarizeAndSend();
   };
 
   return (
@@ -338,6 +402,21 @@ const EmotionDetector = () => {
             <span>{emotion.arousal.toFixed(2)}</span>
           </div>
         </>
+      )}
+
+      {sessionResult && (
+        <div className="row" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+          <span>
+            session sent — dominant:{' '}
+            <span className="emotion">{sessionResult.summary.dominant_emotion}</span>
+          </span>
+          <span>
+            see it server-side:{' '}
+            <a href="https://emotion-api.paksopi.me" target="_blank" rel="noreferrer">
+              emotion-api.paksopi.me
+            </a>
+          </span>
+        </div>
       )}
 
       {status && <div className="status">{status}</div>}

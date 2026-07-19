@@ -21,7 +21,7 @@ const StyledHeroSection = styled.section`
   .hero-content {
     display: flex;
     align-items: flex-start;
-    gap: 50px;
+    gap: 60px;
     flex-wrap: wrap;
 
     @media (max-width: 768px) {
