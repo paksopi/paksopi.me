@@ -32,6 +32,14 @@ npm run serve   # preview the production build locally
 
 Production builds run in GitHub Actions (see `.github/workflows/build.yml`), not on the homelab host — Gatsby/webpack builds are memory-heavy for the low-RAM box this site is deployed to. The built `public/` output is pushed to the `dist` branch and pulled by the deploy host.
 
+## Resolved: homepage used to render empty in static HTML
+
+The homepage (`/` only) used to gate all content behind an intro loading animation (`isLoading` state in `layout.js` defaulting to `true` on `isHome`, showing `Loader` from `loader.js`). Since `isLoading` only flipped to `false` client-side after the animation finished, the SSR/build-time HTML for `/` contained only the loader SVG — no name, bio, or nav. Crawlers/bots that don't execute JS (and link-preview unfurlers like LinkedIn/Slack/Twitter) saw nothing. Every other page (`archive.js`, `gallery.js`, etc.) was unaffected since `isHome` was `false` there.
+
+**Fixed** by removing the loader entirely: `layout.js` now always renders `Nav`/`Social`/`Email`/`children`/`Footer` directly, no `isLoading` branch. Deleted `src/components/loader.js`, `src/components/icons/loader.js` (`IconLoader`, also removed from `icons/index.js` and the `icon.js` switch), and the `animejs` dependency from `package.json` (regenerated `yarn.lock`). Verified via grep that nothing else referenced `Loader`/`animejs`, and `npx eslint` on the touched files passed clean.
+
+Remaining from the original audit, not yet done: `og:image` / `twitter:image` meta are still empty (check `src/components/head.js`) — shared links still get no preview thumbnail.
+
 ## Color reference
 
 | Color          | Hex       |
