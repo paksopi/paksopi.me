@@ -1,0 +1,39 @@
+THIRD-PARTY NOTICES
+===================
+
+The live in-browser emotion-detection demo on this site self-hosts and
+redistributes the following third-party assets under /emotion/. Each is used
+under the terms of its respective open-source license, and the copyright and
+license notices are preserved here as those licenses require.
+
+1. ONNX Runtime Web (onnxruntime-web), v1.17.3
+   Copyright (c) Microsoft Corporation.
+   License: MIT
+   Source: https://github.com/microsoft/onnxruntime
+   Files: ort.min.js, ort-wasm*.wasm
+
+2. MediaPipe Tasks Vision (@mediapipe/tasks-vision), v0.10.14
+   Copyright 2022-2024 The MediaPipe Authors (Google LLC).
+   License: Apache License 2.0
+   Source: https://github.com/google-ai-edge/mediapipe
+   Files: vision/vision_bundle.mjs, vision/vision_wasm_internal.js,
+          vision/vision_wasm_internal.wasm
+
+3. BlazeFace short-range face detection model
+   Copyright 2020 The MediaPipe Authors (Google LLC).
+   License: Apache License 2.0
+   Source: https://developers.google.com/mediapipe/solutions/vision/face_detector
+   Files: vision/blaze_face_short_range.tflite
+
+4. EmotiEffLib emotion recognition model (enet_b0_8_va_mtl)
+   Copyright the EmotiEffLib / sb-ai-lab authors.
+   License: Apache License 2.0
+   Source: https://github.com/sb-ai-lab/EmotiEffLib
+   Files: enet_b0_8_va_mtl.onnx, enet_b0_8_va_mtl.int8.onnx
+   Note: the int8 variant is a dynamically-quantized derivative of the original
+   FP32 ONNX export; no fine-tuning or retraining was performed.
+
+The Apache License 2.0 full text: https://www.apache.org/licenses/LICENSE-2.0
+The MIT License full text: https://opensource.org/licenses/MIT
+
+Site design is based on bchiang7/v4 (MIT), credited in the site footer.
